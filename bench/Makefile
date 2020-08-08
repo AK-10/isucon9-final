@@ -27,3 +27,7 @@ clean:
 	$(RM) ./bin/bench_linux
 	$(RM) ./bin/benchworker_darwin
 	$(RM) ./bin/benchworker_linux
+
+bench:
+	./bin/bench_darwin run --payment=http://localhost:5000 --target=http://localhost:8080 --assetdir=../webapp/frontend/dist
+
