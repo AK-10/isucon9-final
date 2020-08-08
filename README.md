@@ -100,3 +100,12 @@ ansible-playbook -i hosts -u root -s -c paramiko -D playbook.yml
 ### 修正済み
 
 * Ruby実装で、データベースの環境変数参照が誤っていた #211
+
+### sqlスキーマの変更
+- docker volumeを一旦消してcontainerを立ち上げ直す必要がある
+```bash
+# コンテナを止める
+$ docker-compose -f webapp/docker-compose.yml -f webapp/docker-compose.go.yml down
+$ docker volume rm ${container hash}
+$ docker-compose -f webapp/docker-compose.yml -f webapp/docker-compose.go.yml up
+```

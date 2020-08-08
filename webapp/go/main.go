@@ -1997,6 +1997,7 @@ func userReservationCancelHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		payment_api := os.Getenv("PAYMENT_API")
+
 		if payment_api == "" {
 			payment_api = "http://payment:5000"
 		}

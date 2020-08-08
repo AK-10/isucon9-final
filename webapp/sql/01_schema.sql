@@ -86,3 +86,12 @@ CREATE TABLE `users` (
   `salt` varbinary(1024) NOT NULL,
   `super_secure_password` varbinary(256) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX `date_train_class_train_name_station_on_train_timetable_master`
+ON train_timetable_master(
+    `date`,
+    `train_class`,
+    `train_name`,
+    `station`
+);
+
