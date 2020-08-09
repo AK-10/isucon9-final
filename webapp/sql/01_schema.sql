@@ -95,3 +95,10 @@ ON train_timetable_master(
     `station`
 );
 
+
+CREATE INDEX `date_train_class_train_name_on_`
+ON reservations(
+    `date`,
+    `train_class`,
+    `train_name`
+);

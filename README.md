@@ -109,3 +109,7 @@ $ docker-compose -f webapp/docker-compose.yml -f webapp/docker-compose.go.yml do
 $ docker volume rm ${container hash}
 $ docker-compose -f webapp/docker-compose.yml -f webapp/docker-compose.go.yml up
 ```
+
+### 修正箇所
+- searchHandler
+- trainReserveHandler

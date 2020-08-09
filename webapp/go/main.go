@@ -580,6 +580,7 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 			// 所要時間
 			var departure, arrival string
 
+			// N+1
 			err = dbx.Get(&departure, "SELECT departure FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, fromStation.Name)
 			if err != nil {
 				errorResponse(w, http.StatusInternalServerError, err.Error())
@@ -597,6 +598,7 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
+			// N+1
 			err = dbx.Get(&arrival, "SELECT arrival FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, toStation.Name)
 			if err != nil {
 				errorResponse(w, http.StatusInternalServerError, err.Error())
@@ -663,6 +665,7 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 料金計算
+			// N+1 (fareCalcでqueryを読んでいる)
 			premiumFare, err := fareCalc(date, fromStation.ID, toStation.ID, train.TrainClass, "premium")
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
@@ -807,6 +810,7 @@ func trainSeatsHandler(w http.ResponseWriter, r *http.Request) {
 
 		seatReservationList := []SeatReservation{}
 
+		// N+1
 		query := `
 SELECT s.*
 FROM seat_reservations s, reservations r
@@ -832,6 +836,8 @@ WHERE
 
 		for _, seatReservation := range seatReservationList {
 			reservation := Reservation{}
+
+			// N+1
 			query = "SELECT * FROM reservations WHERE reservation_id=?"
 			err = dbx.Get(&reservation, query, seatReservation.ReservationId)
 			if err != nil {
@@ -885,6 +891,7 @@ WHERE
 	query = "SELECT * FROM seat_master WHERE train_class=? AND car_number=? ORDER BY seat_row, seat_column LIMIT 1"
 	i := 1
 	for {
+		// N+1
 		err = dbx.Get(&seat, query, trainClass, i)
 		if err != nil {
 			break
@@ -902,6 +909,7 @@ WHERE
 	w.Write(resp)
 }
 
+// yabai
 func trainReservationHandler(w http.ResponseWriter, r *http.Request) {
 	/*
 		列車の席予約API　支払いはまだ
@@ -1136,6 +1144,7 @@ func trainReservationHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		req.Seats = []RequestSeat{} // 座席リクエスト情報は空に
+		// N+1ではないが，1クエリで済むかも
 		for carnum := 1; carnum <= 16; carnum++ {
 			seatList := []Seat{}
 			query = "SELECT * FROM seat_master WHERE train_class=? AND car_number=? AND seat_class=? AND is_smoking_seat=? ORDER BY seat_row, seat_column"
@@ -1150,6 +1159,7 @@ func trainReservationHandler(w http.ResponseWriter, r *http.Request) {
 			for _, seat := range seatList {
 				s := SeatInformation{seat.SeatRow, seat.SeatColumn, seat.SeatClass, seat.IsSmokingSeat, false}
 				seatReservationList := []SeatReservation{}
+				// N+1
 				query = "SELECT s.* FROM seat_reservations s, reservations r WHERE r.date=? AND r.train_class=? AND r.train_name=? AND car_number=? AND seat_row=? AND seat_column=? FOR UPDATE"
 				err = dbx.Select(
 					&seatReservationList, query,
@@ -1168,6 +1178,7 @@ func trainReservationHandler(w http.ResponseWriter, r *http.Request) {
 
 				for _, seatReservation := range seatReservationList {
 					reservation := Reservation{}
+					// N+1
 					query = "SELECT * FROM reservations WHERE reservation_id=? FOR UPDATE"
 					err = dbx.Get(&reservation, query, seatReservation.ReservationId)
 					if err != nil {
@@ -1281,6 +1292,7 @@ func trainReservationHandler(w http.ResponseWriter, r *http.Request) {
 		seatList := Seat{}
 		for _, z := range req.Seats {
 			fmt.Println("XXXX", z)
+			// N+1
 			query = "SELECT * FROM seat_master WHERE train_class=? AND car_number=? AND seat_column=? AND seat_row=? AND seat_class=?"
 			err = dbx.Get(
 				&seatList, query,

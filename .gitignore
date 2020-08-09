@@ -231,3 +231,6 @@ typings/
 
 # DynamoDB Local files
 .dynamodb/
+
+webapp/go/app
+webapp/go/app
