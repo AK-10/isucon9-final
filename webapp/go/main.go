@@ -506,65 +506,65 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 	// ttm.station = fromStation.Name
 
 	if trainClass == "" {
-		query := "SELECT * FROM train_master WHERE date=? AND train_class IN (?) AND is_nobori=?"
-		inQuery, inArgs, err = sqlx.In(query, date.Format("2006/01/02"), usableTrainClassList, isNobori)
-		// query := `
-		// 	SELECT *, ttm.depature, ttm.arrival FROM train_master tm
-		// 	INNER JOIN
-		// 		train_timetable_master ttm
-		// 	ON
-		// 			tm.date = ttm.date
-		// 		AND
-		// 			tm.train_class = ttm.train_class
-		// 		AND
-		// 			tm.train_name = ttm.train_name
-		// 		AND
-		// 			ttm.station = ?
-		// 	WHERE
-		// 		tm.date=?
-		// 	AND
-		// 		tm.train_class IN (?)
-		// 	AND
-		// 		tm.is_nobori=?
-		// 	`
-		// inQuery, inArgs, err = sqlx.In(query, fromStation.Name, date.Format("2006/01/02"), usableTrainClassList, isNobori)
+		// query := "SELECT * FROM train_master WHERE date=? AND train_class IN (?) AND is_nobori=?"
+		// inQuery, inArgs, err = sqlx.In(query, date.Format("2006/01/02"), usableTrainClassList, isNobori)
+		query := `
+			SELECT tm.*, ttm.departure, ttm.arrival FROM train_master tm
+			INNER JOIN
+				train_timetable_master ttm
+			ON
+					tm.date = ttm.date
+				AND
+					tm.train_class = ttm.train_class
+				AND
+					tm.train_name = ttm.train_name
+			WHERE
+				tm.date=?
+			AND
+				tm.train_class IN (?)
+			AND
+				tm.is_nobori=?
+			AND
+				ttm.station = ?
+			`
+		inQuery, inArgs, err = sqlx.In(query, date.Format("2006/01/02"), usableTrainClassList, isNobori, fromStation.Name)
 	} else {
-		query := "SELECT * FROM train_master WHERE date=? AND train_class IN (?) AND is_nobori=? AND train_class=?"
-		inQuery, inArgs, err = sqlx.In(query, date.Format("2006/01/02"), usableTrainClassList, isNobori, trainClass)
-		// query := `
-		// 	SELECT *, ttm.depature, ttm.arrival FROM train_master tm
-		// 	INNER JOIN
-		// 		train_timetable_master ttm
-		// 	ON
-		// 			tm.date = ttm.date
-		// 		AND
-		// 			tm.train_class = ttm.train_class
-		// 		AND
-		// 			tm.train_name = ttm.train_name
-		// 		AND
-		// 			ttm.station = ?
-		// 	WHERE
-		// 		tm.date=?
-		// 	AND
-		// 		tm.train_class IN (?)
-		// 	AND
-		// 		tm.is_nobori=?
-		// 	AND
-		// 		tm.train_class=?
-		// 	`
-		// inQuery, inArgs, err = sqlx.In(query, fromStation.Name, date.Format("2006/01/02"), usableTrainClassList, isNobori, trainClass)
+		// query := "SELECT * FROM train_master WHERE date=? AND train_class IN (?) AND is_nobori=? AND train_class=?"
+		// inQuery, inArgs, err = sqlx.In(query, date.Format("2006/01/02"), usableTrainClassList, isNobori, trainClass)
+		query := `
+			SELECT tm.*, ttm.departure, ttm.arrival FROM train_master tm
+			INNER JOIN
+				train_timetable_master ttm
+			ON
+					tm.date = ttm.date
+				AND
+					tm.train_class = ttm.train_class
+				AND
+					tm.train_name = ttm.train_name
+			WHERE
+				tm.date=?
+			AND
+				tm.train_class IN (?)
+			AND
+				tm.is_nobori=?
+			AND
+				tm.train_class=?
+			AND
+				ttm.station = ?
+			`
+		inQuery, inArgs, err = sqlx.In(query, date.Format("2006/01/02"), usableTrainClassList, isNobori, trainClass, fromStation.Name)
 	}
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	trainList := []Train{}
-	err = dbx.Select(&trainList, inQuery, inArgs...)
-	if err != nil {
-		errorResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	// trainList := []Train{}
+	// err = dbx.Select(&trainList, inQuery, inArgs...)
+	// if err != nil {
+	// 	errorResponse(w, http.StatusBadRequest, err.Error())
+	// 	return
+	// }
 
 	// cacheしたい(82項目)
 	stations := []Station{}
@@ -579,24 +579,26 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 
 	trainSearchResponseList := []TrainSearchResponse{}
 
-	// rows, err := dbx.Query(inQuery, inArgs...)
-	// if err != nil {
-	// 	errorResponse(w, http.StatusBadRequest, err.Error())
-	// 	return
-	// }
+	rows, err := dbx.Query(inQuery, inArgs...)
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-	// for rows.Next() {
-	// 	isSeekedToFirstStation := false
-	// 	isContainsOriginStation := false
-	// 	isContainsDestStation := false
-	// 	i := 0
-	// }
+	// trainList := []Train{}
 
-	for _, train := range trainList {
+	for rows.Next() {
+
+		var departure, arrival string
+		train := Train{}
+
+		rows.Scan(&train.Date, &train.DepartureAt, &train.TrainClass, &train.TrainName, &train.StartStation, &train.LastStation,
+			&departure,
+			&arrival)
+
 		isSeekedToFirstStation := false
 		isContainsOriginStation := false
 		isContainsDestStation := false
-		// i := 0
 
 		for _, station := range stations {
 
@@ -629,22 +631,14 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 				// 駅が見つからないまま当該編成の終点に着いてしまったとき
 				break
 			}
-			// i++
 		}
 
 		if isContainsOriginStation && isContainsDestStation {
 			// 列車情報
 
 			// 所要時間
-			var departure, arrival string
 
 			// N+1
-			err = dbx.Get(&departure, "SELECT departure FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, fromStation.Name)
-			if err != nil {
-				errorResponse(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-
 			departureDate, err := time.Parse("2006/01/02 15:04:05 -07:00 MST", fmt.Sprintf("%s %s +09:00 JST", date.Format("2006/01/02"), departure))
 			if err != nil {
 				errorResponse(w, http.StatusInternalServerError, err.Error())
@@ -654,13 +648,6 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 			if !date.Before(departureDate) {
 				// 乗りたい時刻より出発時刻が前なので除外
 				continue
-			}
-
-			// N+1
-			err = dbx.Get(&arrival, "SELECT arrival FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, toStation.Name)
-			if err != nil {
-				errorResponse(w, http.StatusInternalServerError, err.Error())
-				return
 			}
 
 			// N+1
@@ -769,6 +756,185 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	// for _, train := range trainList {
+	// 	isSeekedToFirstStation := false
+	// 	isContainsOriginStation := false
+	// 	isContainsDestStation := false
+	// 	// i := 0
+
+	// 	for _, station := range stations {
+
+	// 		if !isSeekedToFirstStation {
+	// 			// 駅リストを列車の発駅まで読み飛ばして頭出しをする
+	// 			// 列車の発駅以前は止まらないので無視して良い
+	// 			if station.Name == train.StartStation {
+	// 				isSeekedToFirstStation = true
+	// 			} else {
+	// 				continue
+	// 			}
+	// 		}
+
+	// 		if station.ID == fromStation.ID {
+	// 			// 発駅を経路中に持つ編成の場合フラグを立てる
+	// 			isContainsOriginStation = true
+	// 		}
+	// 		if station.ID == toStation.ID {
+	// 			if isContainsOriginStation {
+	// 				// 発駅と着駅を経路中に持つ編成の場合
+	// 				isContainsDestStation = true
+	// 				break
+	// 			} else {
+	// 				// 出発駅より先に終点が見つかったとき
+	// 				fmt.Println("なんかおかしい")
+	// 				break
+	// 			}
+	// 		}
+	// 		if station.Name == train.LastStation {
+	// 			// 駅が見つからないまま当該編成の終点に着いてしまったとき
+	// 			break
+	// 		}
+	// 		// i++
+	// 	}
+
+	// 	if isContainsOriginStation && isContainsDestStation {
+	// 		// 列車情報
+
+	// 		// 所要時間
+	// 		var departure, arrival string
+
+	// 		// N+1
+	// 		err = dbx.Get(&departure, "SELECT departure FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, fromStation.Name)
+	// 		if err != nil {
+	// 			errorResponse(w, http.StatusInternalServerError, err.Error())
+	// 			return
+	// 		}
+
+	// 		departureDate, err := time.Parse("2006/01/02 15:04:05 -07:00 MST", fmt.Sprintf("%s %s +09:00 JST", date.Format("2006/01/02"), departure))
+	// 		if err != nil {
+	// 			errorResponse(w, http.StatusInternalServerError, err.Error())
+	// 			return
+	// 		}
+
+	// 		if !date.Before(departureDate) {
+	// 			// 乗りたい時刻より出発時刻が前なので除外
+	// 			continue
+	// 		}
+
+	// 		// N+1
+	// 		err = dbx.Get(&arrival, "SELECT arrival FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, toStation.Name)
+	// 		if err != nil {
+	// 			errorResponse(w, http.StatusInternalServerError, err.Error())
+	// 			return
+	// 		}
+
+	// 		// N+1
+	// 		premium_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "premium", false)
+	// 		if err != nil {
+	// 			errorResponse(w, http.StatusBadRequest, err.Error())
+	// 			return
+	// 		}
+
+	// 		// N+1
+	// 		premium_smoke_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "premium", true)
+	// 		if err != nil {
+	// 			errorResponse(w, http.StatusBadRequest, err.Error())
+	// 			return
+	// 		}
+
+	// 		// N+1
+	// 		reserved_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "reserved", false)
+	// 		if err != nil {
+	// 			errorResponse(w, http.StatusBadRequest, err.Error())
+	// 			return
+	// 		}
+
+	// 		// N+1
+	// 		reserved_smoke_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "reserved", true)
+	// 		if err != nil {
+	// 			errorResponse(w, http.StatusBadRequest, err.Error())
+	// 			return
+	// 		}
+
+	// 		premium_avail := "○"
+	// 		if len(premium_avail_seats) == 0 {
+	// 			premium_avail = "×"
+	// 		} else if len(premium_avail_seats) < 10 {
+	// 			premium_avail = "△"
+	// 		}
+
+	// 		premium_smoke_avail := "○"
+	// 		if len(premium_smoke_avail_seats) == 0 {
+	// 			premium_smoke_avail = "×"
+	// 		} else if len(premium_smoke_avail_seats) < 10 {
+	// 			premium_smoke_avail = "△"
+	// 		}
+
+	// 		reserved_avail := "○"
+	// 		if len(reserved_avail_seats) == 0 {
+	// 			reserved_avail = "×"
+	// 		} else if len(reserved_avail_seats) < 10 {
+	// 			reserved_avail = "△"
+	// 		}
+
+	// 		reserved_smoke_avail := "○"
+	// 		if len(reserved_smoke_avail_seats) == 0 {
+	// 			reserved_smoke_avail = "×"
+	// 		} else if len(reserved_smoke_avail_seats) < 10 {
+	// 			reserved_smoke_avail = "△"
+	// 		}
+
+	// 		// 空席情報
+	// 		seatAvailability := map[string]string{
+	// 			"premium":        premium_avail,
+	// 			"premium_smoke":  premium_smoke_avail,
+	// 			"reserved":       reserved_avail,
+	// 			"reserved_smoke": reserved_smoke_avail,
+	// 			"non_reserved":   "○",
+	// 		}
+
+	// 		// 料金計算
+	// 		// N+1 (fareCalcでqueryを読んでいる)
+	// 		premiumFare, err := fareCalc(date, fromStation.ID, toStation.ID, train.TrainClass, "premium")
+	// 		if err != nil {
+	// 			errorResponse(w, http.StatusBadRequest, err.Error())
+	// 			return
+	// 		}
+	// 		premiumFare = premiumFare*adult + premiumFare/2*child
+
+	// 		reservedFare, err := fareCalc(date, fromStation.ID, toStation.ID, train.TrainClass, "reserved")
+	// 		if err != nil {
+	// 			errorResponse(w, http.StatusBadRequest, err.Error())
+	// 			return
+	// 		}
+	// 		reservedFare = reservedFare*adult + reservedFare/2*child
+
+	// 		nonReservedFare, err := fareCalc(date, fromStation.ID, toStation.ID, train.TrainClass, "non-reserved")
+	// 		if err != nil {
+	// 			errorResponse(w, http.StatusBadRequest, err.Error())
+	// 			return
+	// 		}
+	// 		nonReservedFare = nonReservedFare*adult + nonReservedFare/2*child
+
+	// 		fareInformation := map[string]int{
+	// 			"premium":        premiumFare,
+	// 			"premium_smoke":  premiumFare,
+	// 			"reserved":       reservedFare,
+	// 			"reserved_smoke": reservedFare,
+	// 			"non_reserved":   nonReservedFare,
+	// 		}
+
+	// 		trainSearchResponseList = append(trainSearchResponseList, TrainSearchResponse{
+	// 			train.TrainClass, train.TrainName, train.StartStation, train.LastStation,
+	// 			fromStation.Name, toStation.Name, departure, arrival, seatAvailability, fareInformation,
+	// 		})
+
+	// 		if len(trainSearchResponseList) >= 10 {
+	// 			break
+	// 		}
+	// 	}
+	// }
+
 	resp, err := json.Marshal(trainSearchResponseList)
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, err.Error())
