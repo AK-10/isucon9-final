@@ -21,7 +21,10 @@ import (
 	goji "goji.io"
 	"goji.io/pat"
 	"golang.org/x/crypto/pbkdf2"
+
 	// "sync"
+
+	"github.com/bradfitz/gomemcache/memcache"
 )
 
 var (
@@ -30,6 +33,7 @@ var (
 )
 
 var dbx *sqlx.DB
+var mc *memcache.Client
 
 // DB定義
 
@@ -522,8 +526,9 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stations := []Station{}
-	err = dbx.Select(&stations, query)
+	// stations := []Station{}
+	// err = dbx.Select(&stations, query)
+	stations, err := getStationFromCache()
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, err.Error())
 		return
@@ -2095,6 +2100,12 @@ func initializeHandler(w http.ResponseWriter, r *http.Request) {
 	dbx.Exec("TRUNCATE reservations")
 	dbx.Exec("TRUNCATE users")
 
+	err := setStationToCache()
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	resp := InitializeResponse{
 		availableDays,
 		"golang",
@@ -2164,6 +2175,16 @@ func main() {
 		log.Fatalf("failed to connect to DB: %s.", err.Error())
 	}
 	defer dbx.Close()
+
+	mcHost := os.Getenv("MC_HOST")
+	if mcHost == "" {
+		mcHost = "memcached"
+	}
+	mcPort := os.Getenv("MC_PORT")
+	if mcPort == "" {
+		mcPort = "11211"
+	}
+	mc = memcache.New(fmt.Sprintf("%s:%s", mcHost, mcPort))
 
 	// HTTP
 

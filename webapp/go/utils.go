@@ -1,9 +1,49 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/bradfitz/gomemcache/memcache"
 )
+
+func setStationToCache() error {
+	query := "select * from station_master"
+	stations := []Station{}
+	if err := dbx.Select(&stations, query); err != nil {
+		return err
+	}
+
+	m, err := json.Marshal(stations)
+	if err != nil {
+		return err
+	}
+
+	item := memcache.Item{Key: "stations", Value: m}
+
+	err = mc.Set(&item)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getStationFromCache() ([]Station, error) {
+	item, err := mc.Get("stations")
+	if err != nil {
+		return nil, err
+	}
+
+	stations := []Station{}
+	err = json.Unmarshal(item.Value, &stations)
+	if err != nil {
+		return nil, err
+	}
+
+	return stations, nil
+}
 
 func checkAvailableDate(date time.Time) bool {
 	jst := time.FixedZone("Asia/Tokyo", 9*60*60)
