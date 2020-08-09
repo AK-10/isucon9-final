@@ -503,12 +503,56 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 	var inQuery string
 	var inArgs []interface{}
 
+	// ttm.station = fromStation.Name
+
 	if trainClass == "" {
 		query := "SELECT * FROM train_master WHERE date=? AND train_class IN (?) AND is_nobori=?"
 		inQuery, inArgs, err = sqlx.In(query, date.Format("2006/01/02"), usableTrainClassList, isNobori)
+		// query := `
+		// 	SELECT *, ttm.depature, ttm.arrival FROM train_master tm
+		// 	INNER JOIN
+		// 		train_timetable_master ttm
+		// 	ON
+		// 			tm.date = ttm.date
+		// 		AND
+		// 			tm.train_class = ttm.train_class
+		// 		AND
+		// 			tm.train_name = ttm.train_name
+		// 		AND
+		// 			ttm.station = ?
+		// 	WHERE
+		// 		tm.date=?
+		// 	AND
+		// 		tm.train_class IN (?)
+		// 	AND
+		// 		tm.is_nobori=?
+		// 	`
+		// inQuery, inArgs, err = sqlx.In(query, fromStation.Name, date.Format("2006/01/02"), usableTrainClassList, isNobori)
 	} else {
 		query := "SELECT * FROM train_master WHERE date=? AND train_class IN (?) AND is_nobori=? AND train_class=?"
 		inQuery, inArgs, err = sqlx.In(query, date.Format("2006/01/02"), usableTrainClassList, isNobori, trainClass)
+		// query := `
+		// 	SELECT *, ttm.depature, ttm.arrival FROM train_master tm
+		// 	INNER JOIN
+		// 		train_timetable_master ttm
+		// 	ON
+		// 			tm.date = ttm.date
+		// 		AND
+		// 			tm.train_class = ttm.train_class
+		// 		AND
+		// 			tm.train_name = ttm.train_name
+		// 		AND
+		// 			ttm.station = ?
+		// 	WHERE
+		// 		tm.date=?
+		// 	AND
+		// 		tm.train_class IN (?)
+		// 	AND
+		// 		tm.is_nobori=?
+		// 	AND
+		// 		tm.train_class=?
+		// 	`
+		// inQuery, inArgs, err = sqlx.In(query, fromStation.Name, date.Format("2006/01/02"), usableTrainClassList, isNobori, trainClass)
 	}
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, err.Error())
@@ -522,6 +566,7 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// cacheしたい(82項目)
 	stations := []Station{}
 	err = dbx.Select(&stations, query)
 	if err != nil {
@@ -534,11 +579,24 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 
 	trainSearchResponseList := []TrainSearchResponse{}
 
+	// rows, err := dbx.Query(inQuery, inArgs...)
+	// if err != nil {
+	// 	errorResponse(w, http.StatusBadRequest, err.Error())
+	// 	return
+	// }
+
+	// for rows.Next() {
+	// 	isSeekedToFirstStation := false
+	// 	isContainsOriginStation := false
+	// 	isContainsDestStation := false
+	// 	i := 0
+	// }
+
 	for _, train := range trainList {
 		isSeekedToFirstStation := false
 		isContainsOriginStation := false
 		isContainsDestStation := false
-		i := 0
+		// i := 0
 
 		for _, station := range stations {
 
@@ -571,7 +629,7 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 				// 駅が見つからないまま当該編成の終点に着いてしまったとき
 				break
 			}
-			i++
+			// i++
 		}
 
 		if isContainsOriginStation && isContainsDestStation {
@@ -605,22 +663,28 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// N+1
 			premium_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "premium", false)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
 			}
+
+			// N+1
 			premium_smoke_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "premium", true)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
 			}
 
+			// N+1
 			reserved_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "reserved", false)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
 			}
+
+			// N+1
 			reserved_smoke_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "reserved", true)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
