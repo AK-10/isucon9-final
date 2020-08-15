@@ -213,6 +213,15 @@ type ReservationResponse struct {
 	Seats         []SeatReservation `json:"seats"`
 }
 
+type TrainTimeTable struct {
+	Date       string `db:"date"`
+	TrainClass string `db:"train_class"`
+	TrainName  string `db:"train_name"`
+	Station    string `db:"station"`
+	Departure  string `db:"departure"`
+	Arrival    string `db:"arrival"`
+}
+
 type CancelPaymentInformationRequest struct {
 	PaymentId string `json:"payment_id"`
 }
@@ -534,6 +543,28 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 
 	trainSearchResponseList := []TrainSearchResponse{}
 
+	fromTimeTables := []TrainTimeTable{}
+	err = dbx.Select(
+		&fromTimeTables,
+		`SELECT * FROM train_timetable_master WHERE station=? AND date=?`,
+		fromStation.Name, date.Format("2006/01/02"))
+
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	toTimeTables := []TrainTimeTable{}
+	err = dbx.Select(
+		&toTimeTables,
+		`SELECT * FROM train_timetable_master WHERE station=? AND date=?`,
+		toStation.Name, date.Format("2006/01/02"))
+
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	for _, train := range trainList {
 		isSeekedToFirstStation := false
 		isContainsOriginStation := false
@@ -577,17 +608,21 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 		if isContainsOriginStation && isContainsDestStation {
 			// 列車情報
 
-			// 所要時間
-			var departure, arrival string
+			var fromTimeTable *TrainTimeTable
+			for _, tt := range fromTimeTables {
+				if tt.TrainClass == train.TrainClass && tt.TrainName == train.TrainName {
+					fromTimeTable = &tt
+					break
+				}
+			}
 
-			// N+1
-			err = dbx.Get(&departure, "SELECT departure FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, fromStation.Name)
-			if err != nil {
-				errorResponse(w, http.StatusInternalServerError, err.Error())
+			if fromTimeTable == nil {
+				msg := fmt.Sprintf("depature not found. trainClass: %s, trainName: %s, date: %s", train.TrainClass, train.TrainName, date)
+				errorResponse(w, http.StatusInternalServerError, msg)
 				return
 			}
 
-			departureDate, err := time.Parse("2006/01/02 15:04:05 -07:00 MST", fmt.Sprintf("%s %s +09:00 JST", date.Format("2006/01/02"), departure))
+			departureDate, err := time.Parse("2006/01/02 15:04:05 -07:00 MST", fmt.Sprintf("%s %s +09:00 JST", date.Format("2006/01/02"), fromTimeTable.Departure))
 			if err != nil {
 				errorResponse(w, http.StatusInternalServerError, err.Error())
 				return
@@ -598,10 +633,16 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			// N+1
-			err = dbx.Get(&arrival, "SELECT arrival FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, toStation.Name)
-			if err != nil {
-				errorResponse(w, http.StatusInternalServerError, err.Error())
+			var toTimeTable *TrainTimeTable
+			for _, tt := range toTimeTables {
+				if tt.TrainClass == train.TrainClass && tt.TrainName == train.TrainName {
+					toTimeTable = &tt
+					break
+				}
+			}
+
+			if toTimeTable == nil {
+				errorResponse(w, http.StatusInternalServerError, "arrival not found")
 				return
 			}
 
@@ -697,7 +738,7 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 
 			trainSearchResponseList = append(trainSearchResponseList, TrainSearchResponse{
 				train.TrainClass, train.TrainName, train.StartStation, train.LastStation,
-				fromStation.Name, toStation.Name, departure, arrival, seatAvailability, fareInformation,
+				fromStation.Name, toStation.Name, fromTimeTable.Departure, toTimeTable.Arrival, seatAvailability, fareInformation,
 			})
 
 			if len(trainSearchResponseList) >= 10 {
