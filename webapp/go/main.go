@@ -608,16 +608,6 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 		if isContainsOriginStation && isContainsDestStation {
 			// 列車情報
 
-			// 所要時間
-			// var departure, arrival string
-
-			// N+1
-			// err = dbx.Get(&departure, "SELECT departure FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, fromStation.Name)
-			// if err != nil {
-			// 	errorResponse(w, http.StatusInternalServerError, err.Error())
-			// 	return
-			// }
-			// "SELECT departure FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, fromStation.Name
 			var fromTimeTable *TrainTimeTable
 			for _, tt := range fromTimeTables {
 				if tt.TrainClass == train.TrainClass && tt.TrainName == train.TrainName {
@@ -642,13 +632,6 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 				// 乗りたい時刻より出発時刻が前なので除外
 				continue
 			}
-
-			// N+1
-			// err = dbx.Get(&arrival, "SELECT arrival FROM train_timetable_master WHERE date=? AND train_class=? AND train_name=? AND station=?", date.Format("2006/01/02"), train.TrainClass, train.TrainName, toStation.Name)
-			// if err != nil {
-			// 	errorResponse(w, http.StatusInternalServerError, err.Error())
-			// 	return
-			// }
 
 			var toTimeTable *TrainTimeTable
 			for _, tt := range toTimeTables {
