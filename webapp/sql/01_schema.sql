@@ -87,16 +87,22 @@ CREATE TABLE `users` (
   `super_secure_password` varbinary(256) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE INDEX `date_train_class_train_name_station_on_train_timetable_master`
+-- CREATE INDEX `date_train_class_train_name_station_on_train_timetable_master`
+-- ON train_timetable_master(
+--     `date`,
+--     `train_class`,
+--     `train_name`,
+--     `station`
+-- );
+
+CREATE INDEX `station_on_train_timetable_master`
 ON train_timetable_master(
-    `date`,
-    `train_class`,
-    `train_name`,
-    `station`
+    `station`,
+    `date`
 );
 
 
-CREATE INDEX `date_train_class_train_name_on_`
+CREATE INDEX `date_train_class_train_name_on_reservations`
 ON reservations(
     `date`,
     `train_class`,
