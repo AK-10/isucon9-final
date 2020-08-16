@@ -1,7 +1,0 @@
-gunicorn
-Flask
-requests
-PyMySQL
-python-dateutil
-mysqlclient
-pbkdf2
