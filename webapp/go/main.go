@@ -243,6 +243,12 @@ type AuthResponse struct {
 	Email string `json:"email"`
 }
 
+type SeatResResDirectProduct struct {
+	SeatRes    SeatReservation
+	TrainClass string
+	Res        Reservation
+}
+
 const (
 	sessionName   = "session_isutrain"
 	availableDays = 10
@@ -940,56 +946,127 @@ func trainSeatsHandler(w http.ResponseWriter, r *http.Request) {
 
 	var seatInformationList []SeatInformation
 
-	for _, seat := range seatList {
+	seatResResDirectProduct := []SeatResResDirectProduct{}
+	// query = `
+	// 	SELECT s.* FROM seat_reservations s, reservations r
+	// 	WHERE
+	// 		r.date=? AND r.train_class=? AND r.train_name=? AND car_number=? AND seat_row=? AND seat_column=?
+	// `
+	// err = dbx.Select(
+	// 	&seatReservationList, query,
+	// 	date.Format("2006/01/02"),
+	// 	seat.TrainClass,
+	// 	trainName,
+	// 	seat.CarNumber,
+	// 	seat.SeatRow,
+	// 	seat.SeatColumn,
+	// )
+	// if err != nil {
+	// 	errorResponse(w, http.StatusBadRequest, err.Error())
+	// 	return
+	// }
 
-		s := SeatInformation{seat.SeatRow, seat.SeatColumn, seat.SeatClass, seat.IsSmokingSeat, false}
+	// select tmp.* from (SELECT s.*, r.train_class FROM seat_reservations s, reservations r) as tmp inner join reservations r on tmp.reservation_id = r.reservation_id;
+	query = `
+		SELECT tmp.*, r.* FROM
+			(SELECT s.*, r.train_class FROM seat_reservations s, reservations r
+				WHERE r.date=?
+				AND r.train_name=?
+			) AS tmp
+		INNER JOIN
+			reservations r
+		ON
+			tmp.reservation_id = r.reservation_id
+	`
+	rows, err := dbx.Query(
+		query,
+		date.Format("2006/01/02"),
+		trainName,
+	)
 
-		seatReservationList := []SeatReservation{}
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-		// N+1
-		query := `
-SELECT s.*
-FROM seat_reservations s, reservations r
-WHERE
-	r.date=? AND r.train_class=? AND r.train_name=? AND car_number=? AND seat_row=? AND seat_column=?
-`
+	for rows.Next() {
+		srr := SeatResResDirectProduct{}
 
-		err = dbx.Select(
-			&seatReservationList, query,
-			date.Format("2006/01/02"),
-			seat.TrainClass,
-			trainName,
-			seat.CarNumber,
-			seat.SeatRow,
-			seat.SeatColumn,
+		err = rows.Scan(
+			&(srr.SeatRes).ReservationId,
+			&(srr.SeatRes).CarNumber,
+			&(srr.SeatRes).SeatRow,
+			&(srr.SeatRes).SeatColumn,
+			&srr.TrainClass,
+			&(srr.Res).ReservationId,
+			&(srr.Res).UserId,
+			&(srr.Res).Date,
+			&(srr.Res).TrainClass,
+			&(srr.Res).TrainName,
+			&(srr.Res).Departure,
+			&(srr.Res).Arrival,
+			&(srr.Res).Status,
+			&(srr.Res).PaymentId,
+			&(srr.Res).Adult,
+			&(srr.Res).Child,
+			&(srr.Res).Amount,
 		)
 		if err != nil {
 			errorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		fmt.Println(seatReservationList)
+		seatResResDirectProduct = append(seatResResDirectProduct, srr)
+	}
 
-		for _, seatReservation := range seatReservationList {
-			reservation := Reservation{}
+	stations := []Station{}
+	query = "SELECT * FROM station_master"
 
-			// N+1
-			query = "SELECT * FROM reservations WHERE reservation_id=?"
-			err = dbx.Get(&reservation, query, seatReservation.ReservationId)
-			if err != nil {
-				panic(err)
+	err = dbx.Select(&stations, query)
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	for _, seat := range seatList {
+
+		s := SeatInformation{seat.SeatRow, seat.SeatColumn, seat.SeatClass, seat.IsSmokingSeat, false}
+
+		SRRList := []SeatResResDirectProduct{}
+
+		for _, sr := range seatResResDirectProduct {
+
+			if sr.Res.TrainClass == seat.TrainClass && sr.SeatRes.CarNumber == seat.CarNumber && sr.SeatRes.SeatRow == seat.SeatRow && sr.SeatRes.SeatColumn == seat.SeatColumn {
+				SRRList = append(SRRList, sr)
 			}
+		}
 
-			var departureStation, arrivalStation Station
-			query = "SELECT * FROM station_master WHERE name=?"
+		fmt.Println(SRRList)
 
-			err = dbx.Get(&departureStation, query, reservation.Departure)
-			if err != nil {
-				panic(err)
-			}
-			err = dbx.Get(&arrivalStation, query, reservation.Arrival)
-			if err != nil {
-				panic(err)
+		for _, seatReservation := range SRRList {
+			// var departureStation, arrivalStation Station
+			// query = "SELECT * FROM station_master WHERE name=?"
+			// err = dbx.Get(&departureStation, query, reservation.Departure)
+			// if err != nil {
+			// 	panic(err)
+			// }
+			// err = dbx.Get(&arrivalStation, query, reservation.Arrival)
+			// if err != nil {
+			// 	panic(err)
+			// }
+
+			var departureStation, arrivalStation *Station
+
+			for _, s := range stations {
+				if s.Name == seatReservation.Res.Departure {
+					departureStation = &s
+				} else if s.Name == seatReservation.Res.Arrival {
+					arrivalStation = &s
+				}
+
+				if departureStation != nil && arrivalStation != nil {
+					break
+				}
 			}
 
 			if train.IsNobori {
