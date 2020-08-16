@@ -632,6 +632,20 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	directProduct, err := seatReservationReservationSeatStationStationDirectProduct(fromStation, toStation, isNobori)
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	query = "SELECT * FROM seat_master"
+	// query := "SELECT * FROM seat_master WHERE train_class=? AND seat_class=? is_smoking=?"
+	seatList := []Seat{}
+	err = dbx.Select(&seatList, query)
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	for _, train := range trainList {
 		isSeekedToFirstStation := false
 		isContainsOriginStation := false
@@ -713,23 +727,36 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			premium_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "premium", false)
+			// query := "SELECT * FROM seat_master"
+			// query := "SELECT * FROM seat_master WHERE train_class=? AND seat_class=? is_smoking=?"
+			// seatList := []Seat{}
+			// err = dbx.Select(&seatList, query, train.TrainClass)
+			// if err != nil {
+			// 	errorResponse(w, http.StatusBadRequest, err.Error())
+			// 	return
+			// }
+
+			// premium_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "premium", false)
+			premium_avail_seats, err := train.getAvailableSeatsx(fromStation, toStation, "premium", false, seatList, directProduct)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			premium_smoke_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "premium", true)
+			// premium_smoke_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "premium", true)
+			premium_smoke_avail_seats, err := train.getAvailableSeatsx(fromStation, toStation, "premium", true, seatList, directProduct)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
 			}
 
-			reserved_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "reserved", false)
+			// reserved_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "reserved", false)
+			reserved_avail_seats, err := train.getAvailableSeatsx(fromStation, toStation, "reserved", false, seatList, directProduct)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			reserved_smoke_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "reserved", true)
+			// reserved_smoke_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "reserved", true)
+			reserved_smoke_avail_seats, err := train.getAvailableSeatsx(fromStation, toStation, "reserved", true, seatList, directProduct)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
