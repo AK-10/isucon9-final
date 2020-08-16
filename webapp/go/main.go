@@ -637,6 +637,14 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 		errorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	query = "SELECT * FROM seat_master"
+	// query := "SELECT * FROM seat_master WHERE train_class=? AND seat_class=? is_smoking=?"
+	seatList := []Seat{}
+	err = dbx.Select(&seatList, query)
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	for _, train := range trainList {
 		isSeekedToFirstStation := false
@@ -719,13 +727,14 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			query := "SELECT * FROM seat_master WHERE train_class=?"
-			seatList := []Seat{}
-			err = dbx.Select(&seatList, query, train.TrainClass)
-			if err != nil {
-				errorResponse(w, http.StatusBadRequest, err.Error())
-				return
-			}
+			// query := "SELECT * FROM seat_master"
+			// query := "SELECT * FROM seat_master WHERE train_class=? AND seat_class=? is_smoking=?"
+			// seatList := []Seat{}
+			// err = dbx.Select(&seatList, query, train.TrainClass)
+			// if err != nil {
+			// 	errorResponse(w, http.StatusBadRequest, err.Error())
+			// 	return
+			// }
 
 			// premium_avail_seats, err := train.getAvailableSeats(fromStation, toStation, "premium", false)
 			premium_avail_seats, err := train.getAvailableSeatsx(fromStation, toStation, "premium", false, seatList, directProduct)

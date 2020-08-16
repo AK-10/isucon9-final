@@ -83,7 +83,7 @@ func (train Train) getAvailableSeatsx(fromStation, toStation Station, seatClass 
 
 	seatList := []Seat{}
 	for _, s := range seats {
-		if s.SeatClass == seatClass && s.IsSmokingSeat == isSmokingSeat {
+		if s.TrainClass == train.TrainClass && s.SeatClass == seatClass && s.IsSmokingSeat == isSmokingSeat {
 			seatList = append(seatList, s)
 		}
 	}
