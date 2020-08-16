@@ -48,7 +48,7 @@ func getUsableTrainClassList(fromStation Station, toStation Station) []string {
 	return ret
 }
 
-func (train Train) seatReservationReservationSeatStationStationDirectProduct(from, to Station) ([]SeatReservation, error) {
+func seatReservationReservationSeatStationStationDirectProduct(from, to Station, isNobori bool) ([]SeatReservation, error) {
 	// すでに取られている予約を取得する
 	query := `
 	SELECT sr.reservation_id, sr.car_number, sr.seat_row, sr.seat_column
@@ -63,7 +63,7 @@ func (train Train) seatReservationReservationSeatStationStationDirectProduct(fro
 		sta.name=r.arrival
 	`
 
-	if train.IsNobori {
+	if isNobori {
 		query += "AND ((sta.id < ? AND ? <= std.id) OR (sta.id < ? AND ? <= std.id) OR (? < sta.id AND std.id < ?))"
 	} else {
 		query += "AND ((std.id <= ? AND ? < sta.id) OR (std.id <= ? AND ? < sta.id) OR (sta.id < ? AND ? < std.id))"

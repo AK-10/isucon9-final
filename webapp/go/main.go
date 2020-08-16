@@ -632,6 +632,12 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	directProduct, err := seatReservationReservationSeatStationStationDirectProduct(fromStation, toStation, isNobori)
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	for _, train := range trainList {
 		isSeekedToFirstStation := false
 		isContainsOriginStation := false
@@ -716,12 +722,6 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 			query := "SELECT * FROM seat_master WHERE train_class=?"
 			seatList := []Seat{}
 			err = dbx.Select(&seatList, query, train.TrainClass)
-			if err != nil {
-				errorResponse(w, http.StatusBadRequest, err.Error())
-				return
-			}
-
-			directProduct, err := train.seatReservationReservationSeatStationStationDirectProduct(fromStation, toStation)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
