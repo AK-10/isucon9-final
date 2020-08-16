@@ -353,6 +353,53 @@ func getDistanceFare(origToDestDistance float64) (int, error) {
 	return lastFare, nil
 }
 
+func getDistanceFarex(origToDestDistance float64, distanceFares []DistanceFare) int {
+	lastDistance := 0.0
+	lastFare := 0
+
+	for _, distanceFare := range distanceFares {
+
+		fmt.Println(origToDestDistance, distanceFare.Distance, distanceFare.Fare)
+		if float64(lastDistance) < origToDestDistance && origToDestDistance < float64(distanceFare.Distance) {
+			break
+		}
+		lastDistance = distanceFare.Distance
+		lastFare = distanceFare.Fare
+	}
+
+	return lastFare
+}
+
+func fareCalcx(date time.Time, fromStation, toStation Station, trainClass, seatClass string, distanceFares []DistanceFare, fares []Fare) (int, error) {
+	fmt.Println("distance", math.Abs(toStation.Distance-fromStation.Distance))
+	distFare := getDistanceFarex(math.Abs(toStation.Distance-fromStation.Distance), distanceFares)
+
+	// query = "SELECT * FROM fare_master WHERE train_class=? AND seat_class=? ORDER BY start_date"
+	fareList := []Fare{}
+	for _, f := range fares {
+		if f.TrainClass == trainClass && f.SeatClass == seatClass {
+			fareList = append(fareList, f)
+		}
+	}
+
+	if len(fareList) == 0 {
+		return 0, fmt.Errorf("fare_master does not exists")
+	}
+
+	selectedFare := fareList[0]
+	date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	for _, fare := range fareList {
+		if !date.Before(fare.StartDate) {
+			fmt.Println(fare.StartDate, fare.FareMultiplier)
+			selectedFare = fare
+		}
+	}
+
+	fmt.Println("%%%%%%%%%%%%%%%%%%%")
+
+	return int(float64(distFare) * selectedFare.FareMultiplier), nil
+}
+
 func fareCalc(date time.Time, depStation int, destStation int, trainClass, seatClass string) (int, error) {
 	//
 	// 料金計算メモ
@@ -391,6 +438,8 @@ func fareCalc(date time.Time, depStation int, destStation int, trainClass, seatC
 
 	// 期間・車両・座席クラス倍率
 	fareList := []Fare{}
+
+	// 81個しかないのでキャッシュにおきたい
 	query = "SELECT * FROM fare_master WHERE train_class=? AND seat_class=? ORDER BY start_date"
 	err = dbx.Select(&fareList, query, trainClass, seatClass)
 	if err != nil {
@@ -565,6 +614,24 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	distanceFares := []DistanceFare{}
+	query = "SELECT distance,fare FROM distance_fare_master ORDER BY distance"
+	err = dbx.Select(&distanceFares, query)
+
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	fares := []Fare{}
+	query = "SELECT * FROM fare_master ORDER BY start_date"
+	err = dbx.Select(&fares, query)
+
+	if err != nil {
+		errorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	for _, train := range trainList {
 		isSeekedToFirstStation := false
 		isContainsOriginStation := false
@@ -707,21 +774,22 @@ func trainSearchHandler(w http.ResponseWriter, r *http.Request) {
 
 			// 料金計算
 			// N+1 (fareCalcでqueryを読んでいる)
-			premiumFare, err := fareCalc(date, fromStation.ID, toStation.ID, train.TrainClass, "premium")
+			// premiumFare, err := fareCalc(date, fromStation.ID, toStation.ID, train.TrainClass, "premium")
+			premiumFare, err := fareCalcx(date, fromStation, toStation, train.TrainClass, "premium", distanceFares, fares)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			premiumFare = premiumFare*adult + premiumFare/2*child
 
-			reservedFare, err := fareCalc(date, fromStation.ID, toStation.ID, train.TrainClass, "reserved")
+			reservedFare, err := fareCalcx(date, fromStation, toStation, train.TrainClass, "reserved", distanceFares, fares)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			reservedFare = reservedFare*adult + reservedFare/2*child
 
-			nonReservedFare, err := fareCalc(date, fromStation.ID, toStation.ID, train.TrainClass, "non-reserved")
+			nonReservedFare, err := fareCalcx(date, fromStation, toStation, train.TrainClass, "non-reserved", distanceFares, fares)
 			if err != nil {
 				errorResponse(w, http.StatusBadRequest, err.Error())
 				return
