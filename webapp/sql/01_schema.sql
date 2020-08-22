@@ -125,9 +125,9 @@ ON train_master(
     `train_name`
 );
 
-CREATE INDEX `name_on_station` ON station_master(`name`);
+-- CREATE INDEX `name_on_station` ON station_master(`name`);
 
-CREATE INDEX `start_date_on_fare_master` ON fare_master(`start_date`);
+-- CREATE INDEX `start_date_on_fare_master` ON fare_master(`start_date`);
 
 -- CREATE INDEX `distance_on_distance_fare_master` ON distance_fare_master(`distance`);
 
