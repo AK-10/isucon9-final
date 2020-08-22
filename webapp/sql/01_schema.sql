@@ -105,6 +105,31 @@ ON train_timetable_master(
 CREATE INDEX `date_train_class_train_name_on_reservations`
 ON reservations(
     `date`,
+    `train_name`,
+    `train_class`
+);
+
+
+CREATE INDEX `train_class_car_number_seat_row_seat_column_on_seat_master`
+ON seat_master(
+    `train_class`,
+    `car_number`,
+    `seat_row`,
+    `seat_column`
+);
+
+CREATE INDEX `date_train_class_train_name_on_train_master`
+ON train_master(
+    `date`,
     `train_class`,
     `train_name`
 );
+
+-- CREATE INDEX `name_on_station` ON station_master(`name`);
+
+-- CREATE INDEX `start_date_on_fare_master` ON fare_master(`start_date`);
+
+-- CREATE INDEX `distance_on_distance_fare_master` ON distance_fare_master(`distance`);
+
+-- CREATE INDEX `station_date_on_train_timetable_master` ON train_timetable_master(`station`, `date`);
+
